@@ -231,8 +231,8 @@ int main(int argc, char *argv[]) {
             // Filling inputs of face analytics networks
             for (auto &&face : prev_detection_results) {
                 if (isFaceAnalyticsEnabled) {
-                    auto clippedRect = face.location & cv::Rect(0, 0, width, height);
-                    cv::Mat face = prev_frame(clippedRect);
+                    auto clippedRect = face.location & cv::Rect(0, 0, width, height); //face rect
+                    cv::Mat face = prev_frame(clippedRect); //clip face image for following detector
                     ageGenderDetector.enqueue(face);
                     headPoseDetector.enqueue(face);
                     emotionsDetector.enqueue(face);
@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
 
                 Face::Ptr face;
                 if (!FLAGS_no_smooth) {
-                    face = matchFace(rect, prev_faces);
+                    face = matchFace(rect, prev_faces); //match prev face by IOU
                     float intensity_mean = calcMean(prev_frame(rect));
 
                     if ((face == nullptr) ||
@@ -302,26 +302,26 @@ int main(int argc, char *argv[]) {
                                        i < ageGenderDetector.maxBatch));
                 if (face->isAgeGenderEnabled()) {
                     AgeGenderDetection::Result ageGenderResult = ageGenderDetector[i];
-                    face->updateGender(ageGenderResult.maleProb);
-                    face->updateAge(ageGenderResult.age);
+                    face->updateGender(ageGenderResult.maleProb);//_maleScore, _femaleScore
+                    face->updateAge(ageGenderResult.age); //age
                 }
 
                 face->emotionsEnable((emotionsDetector.enabled() &&
                                       i < emotionsDetector.maxBatch));
                 if (face->isEmotionsEnabled()) {
-                    face->updateEmotions(emotionsDetector[i]);
+                    face->updateEmotions(emotionsDetector[i]); //_emotions is <string,float> pair
                 }
 
                 face->headPoseEnable((headPoseDetector.enabled() &&
                                       i < headPoseDetector.maxBatch));
                 if (face->isHeadPoseEnabled()) {
-                    face->updateHeadPose(headPoseDetector[i]);
+                    face->updateHeadPose(headPoseDetector[i]); //3 angles
                 }
 
                 face->landmarksEnable((facialLandmarksDetector.enabled() &&
                                        i < facialLandmarksDetector.maxBatch));
                 if (face->isLandmarksEnabled()) {
-                    face->updateLandmarks(facialLandmarksDetector[i]);
+                    face->updateLandmarks(facialLandmarksDetector[i]); //vector<float>, key points on face
                 }
 
                 faces.push_back(face);
