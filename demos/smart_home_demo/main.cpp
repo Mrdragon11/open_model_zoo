@@ -29,7 +29,26 @@
 #include "logger.hpp"
 #include "smart_classroom_demo.hpp"
 
+// pose
+
+#include <inference_engine.hpp> //needed?
+#include "human_pose_estimator.hpp"
+#include "render_human_pose.hpp"
+
+// ours
+#include "control.hpp"
+
+#define PRINTLOG(level, msg, ...) \
+    if (level >= 0) { \
+        printf("[Debug] %s: Line %d:\t", __FUNCTION__, __LINE__); \
+        printf(msg, __VA_ARGS__);   \
+        printf("\n");               \
+    }
+
 using namespace InferenceEngine;
+
+using namespace human_pose_estimation;
+
 
 namespace {
 
@@ -542,6 +561,9 @@ bool ParseAndCheckCommandLine(int argc, char *argv[]) {
     if (FLAGS_m_act.empty() && FLAGS_m_fd.empty()) {
         throw std::logic_error("At least one parameter -m_act or -m_fd must be set");
     }
+    if (FLAGS_m_pose.empty()) {
+        throw std::logic_error("Parameter -m_pose is not set");
+    }
 
     return true;
 }
@@ -602,6 +624,8 @@ int main(int argc, char* argv[]) {
         std::set<std::string> loadedDevices;
 
         slog::info << "Device info: " << slog::endl;
+
+        Controller controller;
 
         for (const auto &device : devices) {
             if (loadedDevices.find(device) != loadedDevices.end())
@@ -715,6 +739,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Create tracker for reid
+        PRINTLOG(2, "Create tracker for reid");
         TrackerParams tracker_reid_params;
         tracker_reid_params.min_track_duration = 1;
         tracker_reid_params.forget_delay = 150;
@@ -755,6 +780,7 @@ int main(int argc, char* argv[]) {
         const char SPACE_KEY = 32;
         const cv::Scalar green_color(0, 255, 0);
         const cv::Scalar red_color(0, 0, 255);
+        const cv::Scalar yellow_color(0, 255, 255);
         const cv::Scalar white_color(255, 255, 255);
         std::vector<std::map<int, int>> face_obj_id_to_action_maps;
         std::map<int, int> top_k_obj_ids;
@@ -780,6 +806,17 @@ int main(int argc, char* argv[]) {
         bool is_last_frame = false;
         bool is_monitoring_enabled = false;
         auto prev_frame_path = cap.GetVideoPath();
+
+        //pose
+
+        HumanPoseEstimator estimator(FLAGS_m_pose, FLAGS_d_pose, FLAGS_pc);
+
+        std::vector<HumanPose> poses;
+        bool isLastFrame = false;
+        bool isAsyncMode = true; // execution is always started in SYNC mode
+        bool isModeChanged = false; // set to true when execution mode is changed (SYNC<->ASYNC)
+        bool blackBackground = FLAGS_black;
+        estimator.reshape(frame);  // Do not measure network reshape, if it happened
 
         cv::VideoWriter vid_writer;
         if (!FLAGS_out_v.empty()) {
@@ -819,9 +856,73 @@ int main(int argc, char* argv[]) {
 
             sc_visualizer.SetFrame(prev_frame);
 
+
+            //pose
+            if (isAsyncMode) {
+                if (isModeChanged) {
+                    estimator.frameToBlobCurr(prev_frame);
+                }
+                if (!isLastFrame) {
+                    estimator.frameToBlobNext(frame);
+                }
+            }
+
+
+            if (isAsyncMode) {
+                if (isModeChanged) {
+                    estimator.startCurr();
+                }
+                if (!isLastFrame) {
+                    estimator.startNext();
+                }
+            }
+
+
+            if (estimator.readyCurr()) {
+
+                if (!FLAGS_no_show) {
+                    if (blackBackground) {
+                        prev_frame = cv::Mat::zeros(prev_frame.size(), prev_frame.type());
+                    }
+                }
+
+                poses = estimator.postprocessCurr();
+
+                if (FLAGS_r) {
+
+                    for (HumanPose const& pose : poses) {
+                        std::stringstream rawPose;
+                        rawPose << std::fixed << std::setprecision(0);
+                        for (auto const& keypoint : pose.keypoints) {
+                            rawPose << keypoint.x << "," << keypoint.y << " ";
+                        }
+                        rawPose << pose.score;
+                        std::cout << rawPose.str() << std::endl;
+                    }
+                }
+
+                if (!FLAGS_no_show) {
+                    //presenter.drawGraphs(prev_frame);
+                    renderHumanPose(poses, prev_frame);
+                    sc_visualizer.SetFrame(prev_frame);// set frame again
+                    //cv::imshow("Human Pose Estimation on " + FLAGS_d_pose, prev_frame);
+                }
+            }
+
+            if (isLastFrame) {
+                break;
+            }
+            if (isModeChanged) {
+                isModeChanged = false;
+            }
+
+            // classroom
+
             if (actions_type == TOP_K) {
+                PRINTLOG(2, "actions_type == TOP_K");
                 if ( (is_monitoring_enabled && key == SPACE_KEY) ||
                      (!is_monitoring_enabled && key != SPACE_KEY) ) {
+                    PRINTLOG(2, " TOP_K A");
                     if (key == SPACE_KEY) {
                         action_detector->wait();
                         action_detector->fetchResults();
@@ -843,6 +944,7 @@ int main(int argc, char* argv[]) {
                     sc_visualizer.DrawFPS(1e3f / (wait_time_ms / static_cast<float>(wait_num_frames) + 1e-6f),
                                           green_color);
                 } else {
+                    PRINTLOG(2, " TOP_K B");
                     if (key == SPACE_KEY) {
                         is_monitoring_enabled = true;
 
@@ -872,8 +974,8 @@ int main(int argc, char* argv[]) {
                             if (action.label == top_action_id && top_k_obj_ids.count(action.object_id) == 0) {
                                 const int action_id_in_top = top_k_obj_ids.size();
                                 top_k_obj_ids.emplace(action.object_id, action_id_in_top);
-
-                                sc_visualizer.DrawCrop(action.rect, action_id_in_top, red_color);
+                                PRINTLOG(2, " TOP_K B 1");
+                                sc_visualizer.DrawCrop(action.rect, action_id_in_top, red_color); //draw rect of action
 
                                 if (static_cast<int>(top_k_obj_ids.size()) >= FLAGS_a_top) {
                                     break;
@@ -892,7 +994,7 @@ int main(int argc, char* argv[]) {
                                           red_color);
 
                     for (const auto& action : tracked_actions) {
-                        auto box_color = white_color;
+                        auto box_color = yellow_color;
                         std::string box_caption = "";
 
                         if (top_k_obj_ids.count(action.object_id) > 0) {
@@ -904,6 +1006,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
             } else {
+                PRINTLOG(2, " non TOP_K A, actions_type %d", actions_type);
                 face_detector->wait();
                 detection::DetectedObjects faces = face_detector->fetchResults();
 
@@ -963,7 +1066,14 @@ int main(int argc, char* argv[]) {
                             label_to_draw += "[" + GetActionTextLabel(action_ind, actions_map) + "]";
                         }
                         frame_face_obj_id_to_action[face.object_id] = action_ind;
-                        sc_visualizer.DrawObject(face.rect, label_to_draw, red_color, white_color, true);
+                        //face rect: face location
+                        //person_ind: person index
+                        //face_label: person name.
+                        //action_ind: action_index, [sitting, writing, raising hand, standing, turned around, lie on the desk]
+                        //label_to_draw: action str.
+                        sc_visualizer.DrawObject(face.rect, label_to_draw, red_color, white_color, true); //fact rect, label_to_draw: pose
+                        //controller.Update(face.rect, person_ind, face_label, action_ind);
+                        PRINTLOG(2, " non TOP_K STUDENT A");
                         logger.AddFaceToFrame(face.rect, face_label, "");
                     }
 
@@ -978,15 +1088,18 @@ int main(int argc, char* argv[]) {
 
                 if (actions_type == STUDENT) {
                     for (const auto& action : tracked_actions) {
+                        PRINTLOG(2, " non TOP_K STUDENT B");
                         const auto& action_label = GetActionTextLabel(action.label, actions_map);
                         const auto& action_color = GetActionTextColor(action.label);
                         const auto& text_label = fd_model_path.empty() ? action_label : "";
+                        //action box
                         sc_visualizer.DrawObject(action.rect, text_label, action_color, white_color, true);
                         logger.AddPersonToFrame(action.rect, action_label, "");
                         logger.AddDetectionToFrame(action, work_num_frames);
                     }
                     face_obj_id_to_action_maps.push_back(frame_face_obj_id_to_action);
                 } else if (teacher_track_id >= 0) {
+                    PRINTLOG(2, " non TOP_K non STUDENT B");
                     auto res_find = std::find_if(tracked_actions.begin(), tracked_actions.end(),
                                 [teacher_track_id](const TrackedObject& o){ return o.object_id == teacher_track_id; });
                     if (res_find != tracked_actions.end()) {
@@ -1011,8 +1124,12 @@ int main(int argc, char* argv[]) {
                 break;
             }
             prev_frame = frame.clone();
+
+            if (isAsyncMode) {
+                estimator.swapRequest();
+            }
             logger.FinalizeFrameRecord();
-        }
+        } //end while
         sc_visualizer.Finalize();
 
         slog::info << slog::endl;

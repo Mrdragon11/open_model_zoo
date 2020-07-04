@@ -18,6 +18,15 @@ using namespace InferenceEngine;
 #define POSITIVE_DETECTION_IDX 1
 #define INVALID_TOP_K_IDX -1
 
+
+#define PRINTLOG(level, msg, ...) \
+    if (level >= 0) { \
+        printf("[Debug] %s: Line %d:\t", __FUNCTION__, __LINE__); \
+        printf(msg, __VA_ARGS__);   \
+        printf("\n");               \
+    }
+
+
 template <typename T>
 bool SortScorePairDescend(const std::pair<float, T>& pair1,
                           const std::pair<float, T>& pair2) {
@@ -98,7 +107,9 @@ ActionDetection::ActionDetection(const ActionDetectorConfig& config)
             anchor_height = new_network_ ? anchor_dims[2] : anchor_dims[1];
             anchor_width = new_network_ ? anchor_dims[3] : anchor_dims[2];
             std::size_t action_dimention_idx = new_network_ ? 1 : 3;
+            //num_action_classes comes from string student_ac
             if (anchor_dims[action_dimention_idx] != config_.num_action_classes) {
+                PRINTLOG(2, "anchor_dims[action_dimention_idx] %d, config_.num_action_classes %d", anchor_dims[action_dimention_idx], config_.num_action_classes);
                 throw std::logic_error("The number of specified actions and the number of actions predicted by "
                     "the Person/Action Detection Retail model must match");
             }

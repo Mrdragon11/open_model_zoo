@@ -66,6 +66,22 @@ static const char act_det_output_message[] = "Optional. Output file name to save
 static const char tracker_smooth_size_message[] = "Optional. Number of frames to smooth actions.";
 static const char utilization_monitors_message[] = "Optional. List of monitors to show initially.";
 
+
+//pose
+
+static const char human_pose_estimation_model_message[] = "Required. Path to the Human Pose Estimation model (.xml) file.";
+static const char target_device_message_pose[] = "Optional. Specify the target device for Human Pose Estimation "
+"(the list of available devices is shown below). Default value is CPU. "
+"Use \"-d HETERO:<comma-separated_devices_list>\" format to specify HETERO plugin. "
+"The application looks for a suitable plugin for the specified device.";
+
+static const char black_background[] = "Optional. Show black background.";
+
+DEFINE_string(m_pose, "", human_pose_estimation_model_message);
+DEFINE_string(d_pose, "CPU", target_device_message_pose);
+DEFINE_bool(black, false, black_background);
+
+
 DEFINE_bool(h, false, help_message);
 DEFINE_string(i, "cam", video_message);
 DEFINE_string(m_act, "", person_action_detection_model_message);
@@ -96,7 +112,8 @@ DEFINE_int32(last_frame, -1, last_frame_message);
 DEFINE_string(teacher_id, "", teacher_id_message);
 DEFINE_double(min_ad, 1.0, min_action_duration_message);
 DEFINE_double(d_ad, 1.0, same_action_time_delta_message);
-DEFINE_string(student_ac, "sitting,standing,raising_hand", student_actions_message);
+DEFINE_string(student_ac, "sitting1,standing2,raising_hand3, sitting4,standing5,raising_hand6", student_actions_message); //show on the image box, size is important
+//sitting, writing, raising hand, standing, turned around, lie on the desk
 DEFINE_string(top_ac, "sitting,raising_hand", top_actions_message);
 DEFINE_string(teacher_ac, "standing,writing,demonstrating", teacher_actions_message);
 DEFINE_string(top_id, "raising_hand", target_action_name_message);
@@ -122,6 +139,7 @@ static void showUsage() {
     std::cout << "    -m_fd '<path>'                 " << face_detection_model_message << std::endl;
     std::cout << "    -m_lm '<path>'                 " << facial_landmarks_model_message << std::endl;
     std::cout << "    -m_reid '<path>'               " << face_reid_model_message << std::endl;
+    std::cout << "    -m_pose '<path>'               " << human_pose_estimation_model_message << std::endl;
     std::cout << "    -l '<absolute_path>'           " << custom_cpu_library_message << std::endl;
     std::cout << "          Or" << std::endl;
     std::cout << "    -c '<absolute_path>'           " << custom_cldnn_message << std::endl;
@@ -129,6 +147,7 @@ static void showUsage() {
     std::cout << "    -d_fd '<device>'               " << target_device_message_face_detection << std::endl;
     std::cout << "    -d_lm '<device>'               " << target_device_message_landmarks_regression << std::endl;
     std::cout << "    -d_reid '<device>'             " << target_device_message_face_reid << std::endl;
+    std::cout << "    -d_pose '<device>'             " << target_device_message_pose << std::endl;
     std::cout << "    -out_v  '<path>'               " << output_video_message << std::endl;
     std::cout << "    -greedy_reid_matching          " << greedy_reid_matching_message << std::endl;
     std::cout << "    -pc                            " << performance_counter_message << std::endl;
@@ -158,4 +177,5 @@ static void showUsage() {
     std::cout << "    -al                            " << act_det_output_message << std::endl;
     std::cout << "    -ss_t                          " << tracker_smooth_size_message << std::endl;
     std::cout << "    -u                             " << utilization_monitors_message << std::endl;
+    std::cout << "    -black                     " << black_background << std::endl;
 }
