@@ -38,8 +38,9 @@
 // ours
 #include "control.hpp"
 
+#define LOG_LEVEL 1000
 #define PRINTLOG(level, msg, ...) \
-    if (level >= 0) { \
+    if (level >= LOG_LEVEL) { \
         printf("[Debug] %s: Line %d:\t", __FUNCTION__, __LINE__); \
         printf(msg, __VA_ARGS__);   \
         printf("\n");               \
@@ -625,7 +626,10 @@ int main(int argc, char* argv[]) {
 
         slog::info << "Device info: " << slog::endl;
 
+        // init controller
         Controller controller;
+        controller.Initialize();
+        
 
         for (const auto &device : devices) {
             if (loadedDevices.find(device) != loadedDevices.end())
@@ -837,6 +841,8 @@ int main(int argc, char* argv[]) {
 
         cv::Size graphSize{static_cast<int>(frame.cols / 4), 60};
         Presenter presenter(FLAGS_u, frame.rows - graphSize.height - 10, graphSize);
+
+        controller.Start();
 
         while (!is_last_frame) {
             logger.CreateNextFrameRecord(cap.GetVideoPath(), work_num_frames, prev_frame.cols, prev_frame.rows);
@@ -1117,6 +1123,8 @@ int main(int argc, char* argv[]) {
             }
 
             ++total_num_frames;
+
+            controller.Execute();
 
             sc_visualizer.Show();
 
