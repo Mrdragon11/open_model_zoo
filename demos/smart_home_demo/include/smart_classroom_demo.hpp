@@ -112,7 +112,8 @@ DEFINE_int32(last_frame, -1, last_frame_message);
 DEFINE_string(teacher_id, "", teacher_id_message);
 DEFINE_double(min_ad, 1.0, min_action_duration_message);
 DEFINE_double(d_ad, 1.0, same_action_time_delta_message);
-DEFINE_string(student_ac, "sitting1,standing2,raising_hand3, sitting4,standing5,raising_hand6", student_actions_message); //show on the image box, size is important
+//DEFINE_string(student_ac, "sitting1,standing2,raising_hand3, sitting4,standing5,raising_hand6", student_actions_message); //show on the image box, size is important
+DEFINE_string(student_ac, "1-sitting,2-writing,3-raising_hand, 4-standing,5-turned_around,6-lie_on_the_desk", student_actions_message); //show on the image box, size is important
 //sitting, writing, raising hand, standing, turned around, lie on the desk
 DEFINE_string(top_ac, "sitting,raising_hand", top_actions_message);
 DEFINE_string(teacher_ac, "standing,writing,demonstrating", teacher_actions_message);

@@ -893,7 +893,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 poses = estimator.postprocessCurr();
-
+                controller.UpdatePoses(poses);
                 if (FLAGS_r) {
 
                     for (HumanPose const& pose : poses) {
@@ -910,7 +910,7 @@ int main(int argc, char* argv[]) {
                 if (!FLAGS_no_show) {
                     //presenter.drawGraphs(prev_frame);
                     renderHumanPose(poses, prev_frame);
-                    sc_visualizer.SetFrame(prev_frame);// set frame again
+                    sc_visualizer.SetFrame(prev_frame);// set frame again to show on same window
                     //cv::imshow("Human Pose Estimation on " + FLAGS_d_pose, prev_frame);
                 }
             }
@@ -1078,7 +1078,7 @@ int main(int argc, char* argv[]) {
                         //action_ind: action_index, [sitting, writing, raising hand, standing, turned around, lie on the desk]
                         //label_to_draw: action str.
                         sc_visualizer.DrawObject(face.rect, label_to_draw, red_color, white_color, true); //fact rect, label_to_draw: pose
-                        //controller.Update(face.rect, person_ind, face_label, action_ind);
+                        controller.UpdateOneFace(face.rect, person_ind, face_label, action_ind);
                         PRINTLOG(2, " non TOP_K STUDENT A");
                         logger.AddFaceToFrame(face.rect, face_label, "");
                     }

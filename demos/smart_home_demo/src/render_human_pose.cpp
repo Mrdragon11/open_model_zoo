@@ -39,6 +39,8 @@ void renderHumanPose(const std::vector<HumanPose>& poses, cv::Mat& image) {
         for (size_t keypointIdx = 0; keypointIdx < pose.keypoints.size(); keypointIdx++) {
             if (pose.keypoints[keypointIdx] != absentKeypoint) {
                 cv::circle(image, pose.keypoints[keypointIdx], 4, colors[keypointIdx], -1);
+                //show point index
+                //cv::putText(image, std::to_string(keypointIdx), pose.keypoints[keypointIdx], cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 0), 2, cv::FILLED);
             }
         }
     }
@@ -61,6 +63,7 @@ void renderHumanPose(const std::vector<HumanPose>& poses, cv::Mat& image) {
             cv::ellipse2Poly(cv::Point2d(meanX, meanY), cv::Size2d(length / 2, stickWidth),
                              angle, 0, 360, 1, polygon);
             cv::fillConvexPoly(pane, polygon, colors[limbKeypointsId.second]);
+
         }
     }
     cv::addWeighted(image, 0.4, pane, 0.6, 0, image);
